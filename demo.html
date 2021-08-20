@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>ALT Ι</title>
+    <script src="jspsych-6.3.1/jspsych.js"></script>
+    <script src="jspsych-6.3.1/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="jspsych-6.3.1/plugins/jspsych-image-keyboard-response.js"></script>
+    <script src="psychophysics/jspsych-psychophysics.js"></script>
+    <link href="jspsych-6.3.1/css/jspsych.css" rel="stylesheet" type="text/css">
+    </link>
+
+    <head>
+        <style>
+            body {
+                background-color: rgb(125, 125, 125);
+                color: white;
+            }
+        </style>
+    </head>
+
+</head>
+
+<body>
+
+    <script>
+
+        //设置参数和实验需要的材料
+        var option = ["img/alt1.jpeg", "img/alt2.jpeg", "img/alt3.jpeg"]
+
+        let imagesorder = jsPsych.randomization.sampleWithoutReplacement([0, 1, 2], 3);
+
+        var text = ["好人", "好我", "坏我"];
+
+        let textorder = jsPsych.randomization.sampleWithoutReplacement([0, 1, 2], 3);
+
+        let acc = 0.5;
+
+
+        var images = [];
+        for (var q = 0; q < imagesorder.length; q++)
+            for (var p = 0; p < textorder.length; p++)
+                images.push({
+                    pic: option[imagesorder[q]], item: text[textorder[p]]
+                });
+
+
+        var correct_response = [];
+        for (var q = 0; q < imagesorder.length; q++)
+            for (var p = 0; p < textorder.length; p++)
+                correct_response.push({
+                    data: {
+                        correct_response: (function () {
+                            return p === q ? "j" : "f";
+                        })()
+                    }
+                });
+
+        var objj = [];
+        for (var qq = 0; qq < imagesorder.length * textorder.length; qq++)
+            objj[qq] = Object.assign({}, images[qq], correct_response[qq])
+
+        var images = objj;
+
+        console.log(imagesorder)
+        console.log(textorder)
+        console.log(images)
+
+
+
+        //创建实验需要的screen
+
+        var enterFullscreenMode = {
+            type: "fullscreen",
+            fullscreen_mode: true,
+            message: "<p style = 'color : white'>实验需要全屏模式</p>",
+            button_label: "点击这里进入全屏"
+        }; // 进入全屏
+
+
+        var instruction = {
+        type : 'html-keyboard-response',
+        stimulus: '欢迎您参加本次实验，按任意键进入学习阶段',
+
+
+        }
+
+        frequency = 0;
+        var trial_test = {
+            timeline: [
+                {
+                    data: {
+                        screen_id: "exp"
+                    },
+
+                    type: 'psychophysics',
+                    stimuli: [
+                        {
+                            obj_type: 'cross',
+                            startX: "center", // location of the cross's center in the canvas
+                            startY: "center",
+                            line_color: 'black',
+                            line_length: 100,// You can use the HTML color name instead of the HEX color.
+                            show_start_time: 0,
+                            show_end_time: 500// ms after the start of the trial
+
+                        },
+                        {
+                            obj_type: 'image',
+                            file: jsPsych.timelineVariable('pic'),
+                            show_start_time: 500, // from the trial start (ms)
+                            show_end_time: 700 // from the trial start (ms)
+                        },
+                    ],
+                    choices: ['f', 'j'], // The participant can respond to the stimuli using the 'y' or 'n' key.
+
+                    prompt: 'Press the f or j key to respond.',
+                    response_start_time: 500,
+                    trial_duration: 1700, // 刺激呈现时间
+                    data: jsPsych.timelineVariable("data"),
+                    on_finish: function (data) {
+                        data.correct_response = jsPsych.timelineVariable('data', true).correct_response;
+                        data.correct = data.correct_response == data.key_press
+                        data.first_image = jsPsych.timelineVariable('pic', true)
+                        data.frequencyyy = frequency;
+
+                    }
+                },
+                {
+                    data: {
+                        screen_id: "feedback_test"
+                    },
+                    type: "html-keyboard-response",
+                    stimulus: function () {
+                        let key = jsPsych.data.get().last(1).values()[0].key_press;
+                        let last_trial_accuracy = jsPsych.data.get().last(1).values()[0].correct;
+                        // let time = jsPsych.data.get().last(1).values()[0].rt;
+                        if (last_trial_accuracy && key) {
+                            return "<span class='add_' style='color:white'> correct! </span>"
+                        } else if (!key) {
+                            return "Too slow!"
+                        } else {
+                            return "incorrect!"
+
+                        }
+                    },
+                    choices: jsPsych.NO_KEYS,
+                    trial_duration: 300,
+
+                }
+            ],
+
+            timeline_variables: images,
+            randomize_order: true,
+            repetitions: 1,
+            loop_function: function () {
+                let accuracyy = jsPsych.data.get().filter({ correct: true }).filterCustom(function (data) {
+                    return data.frequencyyy === frequency;
+                }).count() / jsPsych.data.get().filter([{ correct: true }, { correct: false }]).filterCustom(function (data) {
+                    return data.frequencyyy === frequency;
+                }).count()
+                frequency += 1;
+                console.log(accuracyy);
+                if (accuracyy >= acc && frequency >= 1) {
+                    let feedback_all_block = {
+                        type: "html-keyboard-response",
+                        stimulus: function () {
+                            // aaaaa = 1;
+                            let trials = jsPsych.data.get().filter(
+                                [{ correct: true }, { correct: false }, { frequencyyy: frequency }]
+                            );
+                            let correct_trials = trials.filter({
+                                correct: true
+                            }, { frequencyyy: frequency });
+                            let accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+                            let rt = Math.round(correct_trials.select('rt').mean());
+                            return "<style>.context{color:white; font-size: 30px;}</style>\
+                            <div><p class='context'>你正确回答了" + accuracy + "% 的试次。</p>" +
+                                "<p class='context'>你的平均反应时为" + rt + "毫秒。</p>" +
+                                "<p class='context'>请按任意键继续实验!</p></div>";
+                        }
+                    };// 练习结束反馈阶段
+                    pauseExperiment
+                } else if (accuracyy < acc) {
+                    return true;
+                }
+            }
+
+        }
+
+
+
+        var trial_exp = {
+            timeline: [
+                {
+                    data: {
+                        screen_id: "exp"
+                    },
+
+                    type: 'psychophysics',
+                    stimuli: [
+                        {
+                            obj_type: 'cross',
+                            startX: "center", // location of the cross's center in the canvas
+                            startY: "center",
+                            line_color: 'black',
+                            line_length: 100,// You can use the HTML color name instead of the HEX color.
+                            show_start_time: 0,
+                            show_end_time: 500// ms after the start of the trial
+
+                        },
+                        {
+                            obj_type: 'image',
+                            file: jsPsych.timelineVariable('pic'),
+                            show_start_time: 500, // from the trial start (ms)
+                            show_end_time: 700 // from the trial start (ms)
+                        },
+                    ],
+                    choices: ['f', 'j'], // The participant can respond to the stimuli using the 'y' or 'n' key.
+
+                    prompt: 'Press the f or j key to respond.',
+                    response_start_time: 500,
+                    trial_duration: 1700, // 刺激呈现时间
+                    data: jsPsych.timelineVariable("data"),
+                    on_finish: function (data) {
+                        data.correct_response = jsPsych.timelineVariable('data', true).correct_response;
+                        data.correct = data.correct_response == data.key_press
+                        data.first_image = jsPsych.timelineVariable('pic', true)
+                        data.frequencyyy = frequency;
+
+                    }
+                },
+                {
+                    data: {
+                        screen_id: "feedback_exp"
+                    },
+                    type: "html-keyboard-response",
+                    stimulus: function () {
+                        let key = jsPsych.data.get().last(1).values()[0].key_press;
+                        let last_trial_accuracy = jsPsych.data.get().last(1).values()[0].correct;
+                        // let time = jsPsych.data.get().last(1).values()[0].rt;
+                        if (last_trial_accuracy && key) {
+                            return "<span class='add_' style='color:white'> correct! </span>"
+                        } else if (!key) {
+                            return "Too slow!"
+                        } else {
+                            return "incorrect!"
+
+                        }
+                    },
+                    choices: jsPsych.NO_KEYS,
+                    trial_duration: 300,
+
+                }
+            ],
+
+            timeline_variables: images,
+            randomize_order: true,
+            repetitions: 1,
+
+        }
+
+
+        jsPsych.init({
+            timeline: [enterFullscreenMode, trial_test, trial_exp],
+            preload_images: images,
+            on_finish: function () {
+                jsPsych.data.get().localSave("csv", "try_v1.csv");
+            }
+        });
+
+
+
+
+
+    </script>
+</body>
+
+</html>
